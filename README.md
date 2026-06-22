@@ -23,11 +23,62 @@ In digital games, NPC gaze and aiming behavior often remain mechanically rigid, 
 * **What it does:** Restricts eye rotations according to configurable horizontal (yaw) and vertical (elevation/depression) comfort limits (typically $15^{\circ}$ to $25^{\circ}$) based on human ocular ranges. This prevents anatomically unsafe mesh deformations.
 * **Head-Eye Coordination:** By clamping the eyes to a comfort range, the system naturally encourages the Head/Neck Inverse Kinematics (IK) system to participate when tracking extreme off-axis targets.
 * **Modified File:** [`VHPGaze.cs`](Assets/Virtual%20Human%20Project/Scripts/VHPScripts/VHPGaze.cs)
+* **Code Snippet (Editor Properties):**
+  ```csharp
+  [Header("Eye Clamping Limits (Ajustes para a malha)")]
+  [SerializeField, Range(0, 60), Tooltip("Limite para esquerda/direita (Yaw)")] private float _maxYawLimit = 15.0f;
+  [SerializeField, Range(0, 60), Tooltip("Limite para cima (Elevation)")] private float _maxElevationLimit = 10.0f;
+  [SerializeField, Range(0, 60), Tooltip("Limite para baixo (Depression)")] private float _maxDepressionLimit = 15.0f;
+  [SerializeField, Range(1, 50), Tooltip("Distancia minima do ponto focal falso")] private float _minFocalDistance = 10.0f;
+  ```
 
 ### 2. Unified Focal-Center Correction
 * **What it does:** Computes the gaze direction from a "unified focal center" (the midpoint between the two eyes) rather than calculating separate per-eye look directions. This single direction vector is clamped once and converted into a shared virtual target for both eyes, preventing binocular divergence (cross-eye artifacts / strabismus).
 * **Focal Safety:** The reconstructed target is projected beyond a minimum focal distance to prevent excessive convergence when objects get too close to the NPC's face.
 * **Modified File:** [`VHPGaze.cs`](Assets/Virtual%20Human%20Project/Scripts/VHPScripts/VHPGaze.cs)
+* **Code Snippet (Unified Clamping & Rotational Target Application):**
+  ```csharp
+  // Clamps the gaze target position based on human eye rotational limits using a single midpoint vector
+  private Vector3 ClampGazeDirection(Vector3 targetPos)
+  {
+      Vector3 centerEyePos = _eyesAveragePosition;
+      Vector3 dirToTarget = (targetPos - centerEyePos).normalized;
+      Vector3 forward = (_neutralTarget.transform.position - centerEyePos).normalized; 
+
+      Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
+      if (right == Vector3.zero) right = (_rightEyeBone.position - _leftEyeBone.position).normalized;
+      Vector3 up = Vector3.Cross(forward, right).normalized;
+      
+      Quaternion headSpace = Quaternion.LookRotation(forward, up);
+      Vector3 localDir = Quaternion.Inverse(headSpace) * dirToTarget;
+      
+      float yaw = Mathf.Atan2(localDir.x, localDir.z) * Mathf.Rad2Deg;
+      float pitch = Mathf.Asin(localDir.y) * Mathf.Rad2Deg;
+      
+      float originalYaw = yaw;
+      float originalPitch = pitch;
+
+      yaw = Mathf.Clamp(yaw, -_maxYawLimit, _maxYawLimit);
+      pitch = Mathf.Clamp(pitch, -_maxDepressionLimit, _maxElevationLimit);
+      
+      if (originalYaw != yaw || originalPitch != pitch)
+      {
+          Debug.Log($"[Gaze Debug] Alvo fora do limite! Yaw: {originalYaw:F2}º -> {yaw:F2}º | Pitch: {originalPitch:F2}º -> {pitch:F2}º");
+      }
+
+      Vector3 clampedLocalDir = Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward;
+      Vector3 clampedDir = headSpace * clampedLocalDir;
+      
+      float distance = Mathf.Max(Vector3.Distance(targetPos, centerEyePos), _minFocalDistance);
+      
+      return centerEyePos + clampedDir * distance;
+  }
+
+  // Inside CalculateGazeDirection(), we compute the ClampedTarget once and apply it to both eyes
+  Vector3 clampedTarget = ClampGazeDirection(_targetPosition);
+  _leftEyeBone.rotation = Quaternion.LookRotation(clampedTarget - _leftEyeBone.position) * _eyeForwardAxisRotationCorrection;
+  _rightEyeBone.rotation = Quaternion.LookRotation(clampedTarget - _rightEyeBone.position) * _eyeForwardAxisRotationCorrection;
+  ```
 
 ### 3. Context-Aware Target Prioritization (Sentimental Attention)
 * **What it does:** Introduces a lightweight semantic-relevance gaze manager that hooks into the VHP's probabilistic target scoring system.
@@ -35,6 +86,30 @@ In digital games, NPC gaze and aiming behavior often remain mechanically rigid, 
 * **Modified Files:** 
   * [`VHPGazeTarget.cs`](Assets/Virtual%20Human%20Project/Scripts/VHPScripts/VHPGazeTarget.cs) (declares and triggers the `OnCalculateTargetWeight` event hook)
   * [`SentimentalGazeManager.cs`](Assets/Virtual%20Human%20Project/Scripts/VHPScripts/SentimentalGazeManager.cs) (subscribes to the event and applies the priority weight multiplier)
+* **Code Snippet (Weight Boost Event Hook & Listener):**
+  *Inside `VHPGazeTarget.cs` (Hook declaration and trigger):*
+  ```csharp
+  // Event handler definition
+  public delegate float TargetWeightHandler(Transform target, float currentWeight);
+  public event TargetWeightHandler OnCalculateTargetWeight;
+
+  // Invoked inside PonderateTargets()
+  if (OnCalculateTargetWeight != null)
+      targetPonderedValue = OnCalculateTargetWeight(_gazeTargets[i], targetPonderedValue);
+  ```
+  *Inside `SentimentalGazeManager.cs` (Priority multiplier application listener):*
+  ```csharp
+  private float AlterarPesoSentimental(Transform target, float currentWeight)
+  {
+      if (IsSentimentalObject(target.gameObject))
+      {
+          float novoPeso = (currentWeight + 50f) * sentimentalMultiplier;
+          Debug.Log($"[Sentimental Gaze] Alvo Emocional '{target.name}' processado! Peso subiu de {currentWeight} para {novoPeso}");
+          return novoPeso;
+      }
+      return currentWeight;
+  }
+  ```
 
 ---
 
