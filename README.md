@@ -1,12 +1,46 @@
-# Virtual Human Project (VHP) - Version 0.2.1 (Beta)
-*05/10/2025*  
-*Contact: Geoffrey Gorisse, PhD, [geoffrey.gorisse@gmail.com](mailto:geoffrey.gorisse@gmail.com)*
+# Virtual Human Project (VHP) - Context-Aware & Biomechanically Constrained Gaze Extension
 
-The Virtual Human Project (VHP) offers developers an optimized, scalable, and easy-to-integrate package to procedurally animate realistic virtual humans in Unity.
+*Original VHP Version: 0.2.1 (Beta) - 05/10/2025* *Original Contact: Geoffrey Gorisse, PhD, geoffrey.gorisse@gmail.com* *Modified Version Author: Guadalupe Prado Saldanha Ribeiro (Gira LAB / Universidade de Fortaleza - Unifor)* *Associated Publication: XXV Brazilian Symposium on Games and Digital Entertainment (SBGames 2026)*
+
+The Virtual Human Project (VHP) offers developers an optimized, scalable, and easy-to-integrate package to procedurally animate realistic virtual humans in Unity. 
+
+This repository is a **fork/modified version** of the original VHP toolkit. [cite_start]It introduces a gaze-control extension designed to improve the plausibility of NPC gaze through biomechanical constraints, binocular coherence, and context-aware target prioritization[cite: 9].
 
 ---
 
-## Toolkit Features Overview
+## 🛠️ Custom Modifications in this Version
+
+[cite_start]In games, NPC gaze and aiming behavior often remain mechanically rigid or weakly connected to scene context[cite: 8]. To address this, the original VHP gaze pipeline was extended with the following features:
+
+### 1. Biomechanical Eye Clamping
+[cite_start]Independent per-eye limits can create cross-eye artifacts, and unrestrained rotations lead to anatomically unsafe mesh deformations[cite: 83]. 
+* [cite_start]**What it does:** Restricts eye rotations according to configurable yaw and pitch limits (typically $15^{\circ}$ to $25^{\circ}$) based on human ocular ranges[cite: 10, 91, 93]. 
+* [cite_start]**Head-Eye Coordination:** By clamping the eyes to a comfort range, the system encourages the Head/Neck Inverse Kinematics (IK) to participate naturally when tracking extreme targets[cite: 83, 93].
+* [cite_start]**Modified File:** [`NomeDoScriptModificado.cs`](link-para-o-arquivo-modificado-aqui) [cite: 126]
+
+### 2. Unified Focal-Center Correction
+* [cite_start]**What it does:** Computes the gaze direction from a "unified focal center" (the midpoint between the two eyes) rather than calculating per-eye directions[cite: 110, 111]. [cite_start]This single direction vector is clamped and converted into a shared virtual target for both eyes, preventing asymmetric convergence[cite: 10, 111, 112].
+* [cite_start]**Focal Safety:** The reconstructed target is projected beyond a minimum focal distance to prevent excessive convergence (strabismus) when objects get too close to the NPC's face[cite: 114].
+* [cite_start]**Modified File:** [`NomeDoScriptModificado.cs`](link-para-o-arquivo-modificado-aqui) [cite: 126]
+
+### 3. Context-Aware Target Prioritization
+[cite_start]Game scenes often contain objects that are semantically relevant, even if they are not the closest to the NPC[cite: 117].
+* [cite_start]**What it does:** Introduces a lightweight semantic-relevance gaze manager[cite: 118]. [cite_start]This component intercepts the VHP's probabilistic target scoring and checks if a detected object belongs to a developer-defined list of high-priority objects[cite: 119].
+* [cite_start]**Result:** If the object is relevant, its gaze weight is artificially boosted via a base value and a multiplier, biasing the NPC's attention toward authored elements without replacing the original probabilistic pipeline[cite: 120, 121, 122].
+* [cite_start]**New Manager File:** [`NomeDoScriptDoManager.cs`](link-para-o-arquivo-novo-aqui) [cite: 126]
+
+---
+
+## ⚙️ How to configure the new parameters
+
+[cite_start]The new system exposes parameters directly in the Unity Inspector, making it adjustable for different character rigs without changing the source code[cite: 94, 95]:
+* [cite_start]**Maximum Yaw / Elevation / Depression:** Define the anatomical comfort limits for the eyes[cite: 94].
+* [cite_start]**Minimum Focal Distance:** Prevents objects from forcing the eyes to cross[cite: 94].
+* [cite_start]**Semantic Relevance List:** Add specific GameObjects here to increase their priority in the NPC's attention system[cite: 150, 151].
+
+---
+
+## 🌟 Original Toolkit Features Overview
 
 - **Blend Shapes Preset Editor**: Universal Unity editor extension for multi-mesh blend shapes.
 - **Blend Shapes Mapper**: Scriptable object to save blend shapes presets.
@@ -17,92 +51,22 @@ The Virtual Human Project (VHP) offers developers an optimized, scalable, and ea
 - **Dynamic Blend Shape Transition**: Smooth transitions using event-based system for optimized performance.
 - **Demo Scene**: High-quality characters and HD rendering presets for showcasing features.
 
-**Watch the videos**:\
+**Watch the original VHP videos**:\
 [Virtual Human Project | Procedural Emotions, Gaze and Lip Sync](https://youtu.be/mstLuzTw790?si=5IOlBIR9mrzxmKuZ)\
 [Virtual Human Project | Lip Sync Update](https://youtu.be/48T4lnm_Kqs?si=9hNPWfa4Gsfyyrou)
 
 ---
 
-## Blend Shapes Preset Editor
-
-- **Unity Editor Extension**: Tool for managing and editing blend shapes presets in the Unity Editor.
-- **Automatic Retrieval of Multi-Mesh Blend Shapes**: Detects skinned mesh renderers with blend shapes.
-- **Facial Expression Editing**: Select and modify various facial expressions.
-- **Preset Saving**: Store blend shape values in scriptable objects with overwrite protection.
-- **Preset Loading**: Load and edit previously saved presets.
-- **Reset Function**: Reinitialize characters' blend shapes to their default state.
-
----
-
-## Manager Features
-
-- **Blend Shapes Preset Management**: Easily manage and apply blend shape presets for characters.
-- **Custom GUI Editor**: Add and configure procedural controllers (emotions, gaze and lip sync).
-- **Prioritization & Filtering**: Manage overlapping blend shape modifications with priority handling for emotions, gaze, and lip synchronization.
-- **Smooth Transitions**: Event-based system for smooth, optimized blend shape transitions.
-
----
-
-## Emotions Features
-
-- **Dynamic Emotion Loading**: Load and manage blend shapes for various emotions.
-- **Procedural Emotion Control**: Manage emotions such as anger, disgust, fear, happiness, sadness, and surprise.
-- **Mutually Exclusive Modifications**: Emotion-based blend shape changes that don’t conflict with each other.
-
----
-
-## Gaze Features
-
-- **Dynamic Gaze Blend Shapes**: Load and adjust blend shapes based on gaze direction.
-- **Configurable Eye Settings**: Adjust eye behaviors to fit different character templates.
-- **Gaze Orientation Strategies**: Different models to control gaze behavior.
-  - **Static**: Fixed gaze direction based on character's forward axis.
-  - **Random**: Randomized gaze orientation with variable frequency.
-  - **Scripted**: Gaze focused on a predefined target position.  
-  - **Probabilistic**: Gaze statistical ponderation based on distance, sound proximity and volume, and movement velocity. 
-- **Inverse Kinematics (IK)**: Agent mode to control upper body movements with IK and non linear smooth transitions.
-- **Micro-saccades**: Add subtle, realistic eye movements.
-- **Blinking**: Adjustable blinking frequency, blending with other blend shapes.
-
----
-
-## Probabilistic Gaze Configurator Features
-
-- **Editor Tool**: Unity editor extension for probabilistic gaze behavior.
-- **Target Selection Tool**: Quickly select potential gaze targets within the scene.
-- **Instantiating Multiple Targets**: Instantiate multiple targets, avoiding duplication, and automatically scale them in the scene.
-- **Target Removal**: Safely remove existing target prefabs from the scene.
-
----
-
-## Lip Synchronization Features
-
-- **Oculus Audio SDK Integration**: Real-time lip sync based on microphone input and pre-recorded audio tracks.
-- **Viseme Intensity Processing**: Maps viseme intensities to corresponding blend shapes.
-- **Real-Time Lip Sync**: Synch lip movements in real time with microphone input.
-- **Pre-recorded Lip Sync**: Sync lip movements with pre-recorded audio clips.
-
----
-
-## Demo Scene Content
-
-- **High-Quality Male & Female Characters**: Fully rigged characters from Character Creator with high-quality textures including detail map and subsurface scattering.
-- **Demo Manager**: A demo manager script to test and visualize the toolkit’s features in the provided scene.
-- **3D Gaze Targets**: Includes static, dynamic, and sound-based targets for testing gaze behaviors.
-- **HDRP Presets**: Sky, fog, and post-processing volume presets optimized for high-quality rendering.
-- **Lighting**: 3-point lighting configuration for the demo scene.
-
----
-
-## Installation & Setup
+## 📥 Installation & Setup
 
 1. **Clone the repository** or **download the latest release** from GitHub.
 2. Open the project in **Unity** (recommended Unity version: 2020.3 or higher).
+3. Select your character's VHP Gaze component in the Inspector to configure the new Biomechanical Clamping and Semantic Target lists.
 4. **Follow the setup guide** in the documentation to get started with the demo scene and begin using the VHP features.
 
 ---
 
-## License
+## 📄 License
 
 This project is licensed under the **GNU GPLv3**. For commercial projects requiring a proprietary license or specific usage conditions, **dual licensing** is available.  
-For inquiries regarding a commercial license, please contact **Geoffrey Gorisse, PhD** at [geoffrey.gorisse@gmail.com](mailto:geoffrey.gorisse@gmail.com).  
+For inquiries regarding a commercial license for the base project, please contact **Geoffrey Gorisse, PhD** at geoffrey.gorisse@gmail.com.
